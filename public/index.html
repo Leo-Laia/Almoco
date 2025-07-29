@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Votação do Almoço</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    /* Slider base */
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      margin: 1rem 0;
+      background: transparent;
+    }
+    /* Track */
+    input[type="range"]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 8px;
+      background: #ddd;
+      border-radius: 4px;
+      transition: background 0.3s;
+    }
+    input[type="range"]::-moz-range-track {
+      width: 100%;
+      height: 8px;
+      background: #ddd;
+      border-radius: 4px;
+    }
+    /* Thumb */
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      background: #0d6efd;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 2px rgba(0,0,0,0.5);
+      margin-top: -4px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.2s;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      background: #0d6efd;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 2px rgba(0,0,0,0.5);
+      cursor: pointer;
+      transition: background 0.2s, transform 0.2s;
+    }
+    /* Hover & focus */
+    input[type="range"]:hover::-webkit-slider-thumb,
+    input[type="range"]:focus::-webkit-slider-thumb {
+      background: #0b5ed7;
+      transform: scale(1.2);
+    }
+    input[type="range"]:hover::-moz-range-thumb,
+    input[type="range"]:focus::-moz-range-thumb {
+      background: #0b5ed7;
+      transform: scale(1.2);
+    }
+    input[type="range"]:focus {
+      outline: none;
+    }
+    /* Gradient fill until value (WebKit only) */
+    input[type="range"]::-webkit-slider-runnable-track {
+      background: linear-gradient(
+        to right,
+        #0d6efd 0%,
+        #0d6efd calc((var(--value) - 1) / 4 * 100%),
+        #ddd calc((var(--value) - 1) / 4 * 100%),
+        #ddd 100%
+      );
+    }
+  </style>
+</head>
+<body class="bg-light">
+  <div class="container py-5">
+    <h1 class="mb-4">Como estava o almoço hoje?</h1>
+    <span class="mb-4">Você só pode votar uma vez ao dia!</span>
+
+    <div id="form-container">
+      <form id="vote-form">
+        <div id="sliders" class="mb-3"></div>
+        <div class="mb-3">
+          <label for="comment" class="form-label">Comentário (opcional)</label>
+          <textarea id="comment" class="form-control" rows="2"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Enviar voto</button>
+      </form>
+    </div>
+
+    <div id="message" class="alert" style="display:none;"></div>
+
+    <div id="results" style="display:none;">
+      <h2 class="mt-5">Resultados de hoje</h2>
+      <div class="chart-container mb-4" style="position: relative; height:300px;">
+        <canvas id="radarChart"></canvas>
+      </div>
+      <h3>Comentários</h3>
+      <ul id="commentsList" class="list-group"></ul>
+    </div>
+  </div>
+
+  <script>
+    // Fallback UUID
+    function generateUUID() {
+      if (crypto && crypto.randomUUID) return crypto.randomUUID();
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+      });
+    }
+
+    (function(){
+      const criteria = [
+        { key: 'variedade', label: 'Variedade' },
+        { key: 'sabor',     label: 'Sabor'     },
+        { key: 'qualidade', label: 'Qualidade' },
+        { key: 'sobremesa', label: 'Sobremesa' },
+        { key: 'atendimento', label: 'Atendimento' }
+      ];
+      const hoje = new Date().toISOString().slice(0,10);
+      if (localStorage.getItem('votoDate') !== hoje) {
+        localStorage.setItem('votoId', generateUUID());
+        localStorage.setItem('votoDate', hoje);
+        localStorage.removeItem('votoVoted');
+      }
+      const voterId = localStorage.getItem('votoId');
+
+      // Cria sliders
+      const slidersDiv = document.getElementById('sliders');
+      criteria.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'mb-3';
+        div.innerHTML = `
+          <label class="form-label" style="display:block; margin-bottom:.25rem;">
+            ${c.label}: <span id="${c.key}Value">3</span>
+          </label>
+          <input type="range" class="form-range" min="1" max="5" value="3" id="${c.key}" />
+        `;
+        slidersDiv.appendChild(div);
+
+        const slider = div.querySelector(`#${c.key}`);
+        const valSpan = div.querySelector(`#${c.key}Value`);
+        function update() {
+          valSpan.textContent = slider.value;
+          slider.style.setProperty('--value', slider.value);
+        }
+        slider.addEventListener('input', update);
+        update();
+      });
+
+      const form = document.getElementById('vote-form');
+      const msg = document.getElementById('message');
+      const results = document.getElementById('results');
+      const commentsList = document.getElementById('commentsList');
+      let radarChart;
+
+      function showMessage(text, type='success') {
+        msg.textContent = text;
+        msg.className = 'alert alert-' + type;
+        msg.style.display = 'block';
+      }
+
+      function displayResults(data) {
+        // Destroy old chart
+        if (radarChart) radarChart.destroy();
+        const ctx = document.getElementById('radarChart').getContext('2d');
+        radarChart = new Chart(ctx, {
+          type: 'radar',
+          data: {
+            labels: criteria.map(c => c.label),
+            datasets: [{
+              label: 'Média',
+              data: criteria.map(c => data.avg[c.key] || 0),
+              fill: true,
+              backgroundColor: 'rgba(54,162,235,0.2)',
+              borderColor: 'rgba(54,162,235,1)',
+              pointBackgroundColor: 'rgba(54,162,235,1)'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { r: { beginAtZero: true, min: 0, max: 5, ticks: { stepSize: 1 } } }
+          }
+        });
+
+        // Comentários
+        commentsList.innerHTML = '';
+        fetch('/api/comentarios')
+          .then(r => r.json())
+          .then(cdata => {
+            cdata.comments.forEach(item => {
+              const li = document.createElement('li');
+              li.className = 'list-group-item';
+              li.textContent = `${item.date}: ${item.comment}`;
+              commentsList.appendChild(li);
+            });
+          });
+
+        results.style.display = 'block';
+      }
+
+      function fetchResults() {
+        fetch('/api/avaliacoes')
+          .then(r => r.json())
+          .then(displayResults);
+      }
+
+      // Se já votou
+      if (localStorage.getItem('votoVoted') === hoje) {
+        document.getElementById('form-container').style.display = 'none';
+        showMessage('Você já votou hoje.', 'info');
+        fetchResults();
+      }
+
+      form.addEventListener('submit', e => {
+        e.preventDefault();
+        const notas = {};
+        criteria.forEach(c => notas[c.key] = +document.getElementById(c.key).value);
+        const comment = document.getElementById('comment').value.trim();
+        fetch('/api/voto', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ voterId, notas, comment })
+        })
+        .then(res => res.ok ? res.json() : res.json().then(err => Promise.reject(err)))
+        .then(() => {
+          localStorage.setItem('votoVoted', hoje);
+          document.getElementById('form-container').style.display = 'none';
+          showMessage('Voto registrado! Obrigado.', 'success');
+          fetchResults();
+        })
+        .catch(err => showMessage(err.error || 'Erro ao enviar voto', 'danger'));
+      });
+    })();
+  </script>
+</body>
+</html>

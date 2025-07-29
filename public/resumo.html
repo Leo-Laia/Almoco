@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Resumo de Votos</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    .chart-container {
+      max-width: 400px;
+      margin: auto;
+    }
+    canvas {
+      width: 100% !important;
+      height: 300px !important;
+    }
+  </style>
+</head>
+<body class="bg-light">
+  <div class="container py-5">
+    <h1 class="mb-4">Resumo de Votos</h1>
+
+    <!-- Botões de alternância -->
+    <div class="btn-group mb-4">
+      <button id="btnHoje" class="btn btn-outline-primary active">Hoje</button>
+      <button id="btnAcumulado" class="btn btn-outline-primary">Acumulado</button>
+    </div>
+
+    <!-- Seção HOJE -->
+    <div id="secHoje">
+      <h2>Resultados de Hoje</h2>
+      <div class="chart-container mb-4">
+        <canvas id="chartHoje"></canvas>
+      </div>
+      <p><strong>Total de votos:</strong> <span id="countHoje">0</span></p>
+
+      <h3 class="mt-4">Comentários de Hoje</h3>
+      <ul class="list-group"><!-- comentários serão inseridos aqui --></ul>
+    </div>
+
+    <!-- Seção ACUMULADO -->
+    <div id="secAcumulado" class="d-none">
+      <h2>Relatório Acumulado</h2>
+      <form id="formRelatorio" class="row g-3 align-items-end mb-4">
+        <div class="col-auto">
+          <label for="start" class="form-label">De</label>
+          <input type="date" id="start" class="form-control" value=""/>
+        </div>
+        <div class="col-auto">
+          <label for="end" class="form-label">Até</label>
+          <input type="date" id="end" class="form-control" value=""/>
+        </div>
+        <div class="col-auto">
+          <button class="btn btn-primary">Gerar</button>
+        </div>
+      </form>
+
+      <div class="chart-container mb-4">
+        <canvas id="chartAcumulado"></canvas>
+      </div>
+      <p><strong>Total de votos:</strong> <span id="countAcumulado">0</span></p>
+
+      <h3 class="mt-4">Comentários Acumulados</h3>
+      <ul class="list-group"><!-- comentários serão inseridos aqui --></ul>
+    </div>
+  </div><!-- fecha .container -->
+
+  <script>
+    /**
+     * Insere comentários na <ul> da seção (hoje ou acumulado).
+     * Espera que `/api/comentarios` retorne:
+     *   { comments: [ { date: "YYYY-MM-DD", comment: "..." }, … ] }
+     */
+    function loadComments(section, start, end) {
+      const params = (start && end)
+        ? `?start=${start}&end=${end}`
+        : '';
+      fetch('/api/comentarios' + params)
+        .then(r => r.json())
+        .then(data => {
+          const ul = section.querySelector('ul.list-group');
+          ul.innerHTML = '';
+          data.comments.forEach(item => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item';
+            li.textContent = `${item.date}: ${item.comment}`;
+            ul.appendChild(li);
+          });
+        });
+    }
+
+    (function(){
+      const criteriaLabels = [
+        'Variedade','Sabor','Qualidade','Sobremesa','Atendimento'
+      ];
+      const btnHoje      = document.getElementById('btnHoje');
+      const btnAcumulado = document.getElementById('btnAcumulado');
+      const secHoje      = document.getElementById('secHoje');
+      const secAcumulado = document.getElementById('secAcumulado');
+      let chartHoje, chartAcum;
+
+      function toggleMode(isHoje) {
+        btnHoje.classList.toggle('active', isHoje);
+        btnAcumulado.classList.toggle('active', !isHoje);
+        secHoje.classList.toggle('d-none', !isHoje);
+        secAcumulado.classList.toggle('d-none', isHoje);
+      }
+
+      btnHoje.addEventListener('click', () => { toggleMode(true); loadHoje(); });
+      btnAcumulado.addEventListener('click', () => { toggleMode(false); });
+
+      // Carrega data de hoje
+      function loadHoje() {
+        fetch('/api/avaliacoes')
+          .then(r => r.json())
+          .then(data => {
+            document.getElementById('countHoje').textContent = data.count;
+            renderChart('chartHoje', data.avg, chartHoje, c => chartHoje = c);
+            loadComments(secHoje, null, null);
+          });
+      }
+
+      // Desenha o radar
+      function renderChart(canvasId, avg, existingChart, assign) {
+        const ctx  = document.getElementById(canvasId).getContext('2d');
+        const data = criteriaLabels.map(lbl => avg[lbl.toLowerCase()] || 0);
+
+        if (existingChart) {
+          existingChart.data.datasets[0].data = data;
+          return existingChart.update();
+        }
+
+        const cfg = {
+          type: 'radar',
+          data: {
+            labels: criteriaLabels,
+            datasets: [{
+              label: 'Média',
+              data,
+              fill: true,
+              backgroundColor: 'rgba(54,162,235,0.2)',
+              borderColor: 'rgba(54,162,235,1)',
+              pointBackgroundColor: 'rgba(54,162,235,1)',
+            }]
+          },
+          options: {
+            maintainAspectRatio: false,
+            scales: {
+              r: {
+                beginAtZero: true,
+                min: 0,
+                max: 5,
+                ticks: { stepSize: 1 }
+              }
+            }
+          }
+        };
+        assign(new Chart(ctx, cfg));
+      }
+
+      // Handler Acumulado
+      document.getElementById('formRelatorio')
+        .addEventListener('submit', e => {
+          e.preventDefault();
+          const start = document.getElementById('start').value;
+          const end   = document.getElementById('end').value;
+          if (!start || !end || end < start) {
+            return alert('Escolha um período válido');
+          }
+          fetch(`/api/avaliacoes?start=${start}&end=${end}`)
+            .then(r => r.json())
+            .then(data => {
+              document.getElementById('countAcumulado').textContent = data.count;
+              renderChart('chartAcumulado', data.avg, chartAcum, c => chartAcum = c);
+              loadComments(secAcumulado, start, end);
+            });
+        });
+
+      // Inicializa em “Hoje”
+      toggleMode(true);
+      loadHoje();
+    })();
+  </script>
+</body>
+</html>

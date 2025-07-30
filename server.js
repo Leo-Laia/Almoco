@@ -1,114 +1,127 @@
+require('dotenv').config();
 const express = require('express');
-const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const DATA_FILE = path.join(__dirname, 'votes.json');
-function readData() {
-  try {
-    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
-  } catch {
-    return { votes: [] };
-  }
-}
-function writeData(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-}
-
+// Middlewares
 app.use(express.json());
 app.use(express.static('public'));
 
-// POST /api/voto
-app.post('/api/voto', (req, res) => {
-  const { voterId, notas, comment } = req.body;
-  if (!voterId || !notas) return res.status(400).json({ error: 'Dados incompletos' });
+// Conexão com MongoDB
+mongoose
+  .connect(process.env.MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log('✅ MongoDB conectado!'))
+  .catch(err => {
+    console.error('❌ Erro ao conectar no MongoDB:', err);
+    process.exit(1);
+  });
 
-  const data = readData();
-  const today = new Date().toISOString().slice(0,10);
-  if (data.votes.find(v => v.voterId === voterId && v.date === today)) {
-    return res.status(400).json({ error: 'Você já votou hoje' });
+// Definição do schema/model de voto
+const voteSchema = new mongoose.Schema({
+  voterId: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  date: {
+    type: String, // armazenamos no formato "YYYY-MM-DD"
+    required: true,
+  },
+  notas: {
+    variedade:   { type: Number, required: true, min: 0 },
+    sabor:       { type: Number, required: true, min: 0 },
+    qualidade:   { type: Number, required: true, min: 0 },
+    sobremesa:   { type: Number, required: true, min: 0 },
+    atendimento: { type: Number, required: true, min: 0 },
+  },
+  comment: {
+    type: String,
+    trim: true,
+    default: '',
+  },
+});
+
+const Vote = mongoose.model('Vote', voteSchema);
+
+// POST /api/voto — registra um novo voto
+app.post('/api/voto', async (req, res) => {
+  try {
+    const { voterId, notas, comment } = req.body;
+    if (!voterId || !notas) {
+      return res.status(400).json({ error: 'Dados incompletos' });
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const alreadyVoted = await Vote.findOne({ voterId, date: today });
+    if (alreadyVoted) {
+      return res.status(400).json({ error: 'Você já votou hoje' });
+    }
+
+    const vote = new Vote({ voterId, date: today, notas, comment });
+    await vote.save();
+    res.status(201).json({ message: 'Voto registrado' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao registrar voto' });
   }
-
-  data.votes.push({ voterId, date: today, notas, comment });
-  writeData(data);
-  res.status(201).json({ message: 'Voto registrado' });
 });
 
-// GET /api/avaliacoes
-/**app.get('/api/avaliacoes', (req, res) => {
-  const data = readData();
-  const today = new Date().toISOString().slice(0,10);
-  const todays = data.votes.filter(v => v.date === today);
+// GET /api/avaliacoes — retorna média das notas no período
+app.get('/api/avaliacoes', async (req, res) => {
+  try {
+    const { start, end } = req.query;
+    const from = start || new Date().toISOString().slice(0, 10);
+    const to   = end   || from;
 
-  const criteria = ['variedade','sabor','qualidade','sobremesa','atendimento'];
-  const avg = {};
-  criteria.forEach(c => {
-    const sum = todays.reduce((s, v) => s + (v.notas[c]||0), 0);
-    avg[c] = todays.length ? +(sum / todays.length).toFixed(2) : 0;
-  });
+    const votes = await Vote.find({
+      date: { $gte: from, $lte: to }
+    });
 
-  res.json({ avg, count: todays.length });
-});**/
-app.get('/api/avaliacoes', (req, res) => {
-  const data = readData();
-  const { start, end } = req.query;
+    const criteria = ['variedade', 'sabor', 'qualidade', 'sobremesa', 'atendimento'];
+    const avg = {};
+    criteria.forEach(c => {
+      const sum = votes.reduce((s, v) => s + (v.notas[c] || 0), 0);
+      avg[c] = votes.length ? +(sum / votes.length).toFixed(2) : 0;
+    });
 
-  // se não vier nada, usa só hoje
-  const from = start || new Date().toISOString().slice(0,10);
-  const to   = end   || from;
-
-  // filtra votes entre from e to (inclusive)
-  const votes = data.votes.filter(v =>
-    v.date >= from && v.date <= to
-  );
-
-  const criteria = ['variedade','sabor','qualidade','sobremesa','atendimento'];
-  const avg = {};
-  criteria.forEach(c => {
-    const sum = votes.reduce((s, v) => s + (v.notas[c]||0), 0);
-    avg[c] = votes.length ? +(sum / votes.length).toFixed(2) : 0;
-  });
-
-  res.json({ avg, count: votes.length, period: { from, to } });
+    res.json({ avg, count: votes.length, period: { from, to } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar avaliações' });
+  }
 });
 
-// GET /api/comentarios
-/**app.get('/api/comentarios', (req, res) => {
-  const data = readData();
-  const today = new Date().toISOString().slice(0,10);
-  const comments = data.votes
-    .filter(v => v.date === today && v.comment && v.comment.trim())
-    .map(v => v.comment);
-  res.json({ comments });
-});**/
-app.get('/api/comentarios', (req, res) => {
-  const data = readData();
-  const { start, end } = req.query;
-  const from = start || new Date().toISOString().slice(0,10);
-  const to   = end   || from;
+// GET /api/comentarios — lista comentários no período
+app.get('/api/comentarios', async (req, res) => {
+  try {
+    const { start, end } = req.query;
+    const from = start || new Date().toISOString().slice(0, 10);
+    const to   = end   || from;
 
-  const comments = data.votes
-    .filter(v =>
-      v.date >= from &&
-      v.date <= to &&
-      v.comment &&
-      v.comment.trim()
-    )
-    .map(v => ({
-      date: v.date,
-      comment: v.comment.trim()
-    }));
+    const comments = await Vote.find({
+      date: { $gte: from, $lte: to },
+      comment: { $exists: true, $ne: '' }
+    }).select('date comment -_id');
 
-  res.json({ comments, period: { from, to }, count: comments.length });
+    res.json({ comments, period: { from, to }, count: comments.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar comentários' });
+  }
 });
 
-
-
-app.get('/resumo', (req,res) => {
+// GET /resumo — serve página estática de resumo
+app.get('/resumo', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'resumo.html'));
 });
 
+// Inicia servidor
 app.listen(PORT, () => {
-  console.log(`Server ouvindo na porta ${PORT}`);
+  console.log(`🚀 Server ouvindo na porta ${PORT}`);
 });

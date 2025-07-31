@@ -119,7 +119,9 @@ app.get('/api/comentarios', async (req, res) => {
     const comments = await Vote.find({
       date: { $gte: from, $lte: to },
       comment: { $exists: true, $ne: '' }
-    }).select('date comment likes dislikes');
+    })
+      .select('_id date comment likes dislikes')
+      .sort({ likes: -1, dislikes: 1, date: -1 });
 
     res.json({ comments, period: { from, to }, count: comments.length });
   } catch (err) {

@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const mongoose = require('mongoose');
+const { version } = require('./package.json');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,13 +11,18 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static('public'));
 
+// Endpoint para versão da aplicação
+app.get('/api/version', (req, res) => {
+  res.json({ version });
+});
+
 // Conexão com MongoDB
 mongoose
   .connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
-  .then(() => console.log(`✅ MongoDB conectado! URI: ${process.env.MONGODB_URI}`))
+  .then(() => console.log(`✅ MongoDB conectado! URI: ${process.env.MONGODB_HOST}`))
   .catch(err => {
     console.error('❌ Erro ao conectar no MongoDB:', err);
     process.exit(1);

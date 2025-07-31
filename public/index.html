@@ -344,5 +344,15 @@
       });
     })();
   </script>
+  <footer class="text-center mt-4">
+    Versão <span id="appVersion"></span>
+  </footer>
+  <script>
+    fetch('/api/version')
+      .then(r => r.json())
+      .then(d => {
+        document.getElementById('appVersion').textContent = d.version;
+      });
+  </script>
 </body>
 </html>

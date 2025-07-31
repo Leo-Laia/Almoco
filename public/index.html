@@ -78,9 +78,19 @@
         #ddd 100%
       );
     }
+        /* Labels below range slider */
+    .range-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      margin-top: -0.25rem;
+      padding: 0 2px;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body class="bg-light">
+  <div></div>
   <div class="container py-5">
     <h1 class="mb-4">Como estava o almoço hoje?</h1>
     <span class="mb-4">Você só pode votar uma vez ao dia!</span>
@@ -143,7 +153,11 @@
           <label class="form-label" style="display:block; margin-bottom:.25rem;">
             ${c.label}: <span id="${c.key}Value">3</span>
           </label>
-          <input type="range" class="form-range" min="1" max="5" value="3" id="${c.key}" />
+                    <input type="range" class="form-range" min="1" max="5" value="3" id="${c.key}"
+                 aria-valuemin="1" aria-valuemax="5" aria-valuenow="3" aria-label="${c.label}" />
+          <div class="range-labels" aria-hidden="true">
+            <span>Muito Ruim</span><span>Ruim</span><span>Regular</span><span>Bom</span><span>Muito Bom</span>
+          </div>
         `;
         slidersDiv.appendChild(div);
 

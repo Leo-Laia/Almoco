@@ -34,12 +34,12 @@ const voteSchema = new mongoose.Schema({
     required: true,
   },
   notas: {
-    variedade:   { type: Number, required: true, min: 0 },
-    sabor:       { type: Number, required: true, min: 0 },
-    qualidade:   { type: Number, required: true, min: 0 },
-    carne:       { type: Number, required: true, min: 0 },
-    sobremesa:   { type: Number, required: true, min: 0 },
-    atendimento: { type: Number, required: true, min: 0 },
+    variedade:   { type: Number, min: 0, default: null },
+    sabor:       { type: Number, min: 0, default: null },
+    qualidade:   { type: Number, min: 0, default: null },
+    carne:       { type: Number, min: 0, default: null },
+    sobremesa:   { type: Number, min: 0, default: null },
+    atendimento: { type: Number, min: 0, default: null },
   },
   comment: {
     type: String,

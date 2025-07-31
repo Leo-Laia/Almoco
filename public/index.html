@@ -154,22 +154,38 @@
           <label class="form-label" style="display:block; margin-bottom:.25rem;">
             ${c.label}: <span id="${c.key}Value">3</span>
           </label>
-                    <input type="range" class="form-range" min="1" max="5" value="3" id="${c.key}"
-                 aria-valuemin="1" aria-valuemax="5" aria-valuenow="3" aria-label="${c.label}" />
+		  <input type="range" class="form-range" min="1" max="5" value="3" id="${c.key}" aria-valuemin="1" aria-valuemax="5" aria-valuenow="3" aria-label="${c.label}" />
           <div class="range-labels" aria-hidden="true">
             <span>Muito Ruim</span><span>Ruim</span><span>Regular</span><span>Bom</span><span>Muito Bom</span>
+          </div>
+			<div class="form-check form-switch mt-1">
+            <input type="checkbox" class="form-check-input" id="${c.key}-no">
+            <label  class="form-check-label text-primary fw-bold" for="${c.key}-no">Não quero opinar.</label>
+			<hr>
           </div>
         `;
         slidersDiv.appendChild(div);
 
-        const slider = div.querySelector(`#${c.key}`);
-        const valSpan = div.querySelector(`#${c.key}Value`);
+        const slider  = div.querySelector(`#${c.key}`);
+        const valSpan  = div.querySelector(`#${c.key}Value`);
+        const optOutCb = div.querySelector(`#${c.key}-no`);
         function update() {
-          valSpan.textContent = slider.value;
-          slider.style.setProperty('--value', slider.value);
+             if (optOutCb.checked) {
+              valSpan.textContent = '-';
+            } else {
+              valSpan.textContent = slider.value;
+              slider.style.setProperty('--value', slider.value);
+            }
         }
+
+        function toggle() {
+          slider.disabled = optOutCb.checked;
+          update();
+        }
+
         slider.addEventListener('input', update);
-        update();
+          optOutCb.addEventListener('change', toggle);
+          toggle();
       });
 
       const form = document.getElementById('vote-form');
@@ -240,7 +256,11 @@
       form.addEventListener('submit', e => {
         e.preventDefault();
         const notas = {};
-        criteria.forEach(c => notas[c.key] = +document.getElementById(c.key).value);
+        criteria.forEach(c => {
+          const slider  = document.getElementById(c.key);
+          const optOut  = document.getElementById(c.key + '-no');
+          notas[c.key] = optOut.checked ? null : +slider.value;
+        });
         const comment = document.getElementById('comment').value.trim();
         fetch('/api/voto', {
           method: 'POST',

@@ -112,14 +112,22 @@ app.get('/api/avaliacoes', async (req, res) => {
 // GET /api/comentarios — lista comentários no período
 app.get('/api/comentarios', async (req, res) => {
   try {
-    const { start, end } = req.query;
+    const { start, end, q, minLikes } = req.query;
     const from = start || new Date().toISOString().slice(0, 10);
     const to   = end   || from;
 
-    const comments = await Vote.find({
+    const filter = {
       date: { $gte: from, $lte: to },
       comment: { $exists: true, $ne: '' }
-    })
+    };
+    if (q) {
+      filter.comment = { ...filter.comment, $regex: q, $options: 'i' };
+    }
+    if (minLikes) {
+      filter.likes = { $gte: Number(minLikes) };
+    }
+
+    const comments = await Vote.find(filter)
       .select('_id date comment likes dislikes')
       .sort({ likes: -1, dislikes: 1, date: -1 });
 

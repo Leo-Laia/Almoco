@@ -226,13 +226,51 @@
 
         // Comentários
         commentsList.innerHTML = '';
+        const reactions = JSON.parse(localStorage.getItem('reactions') || '{}');
+        function saveReactions() {
+          localStorage.setItem('reactions', JSON.stringify(reactions));
+        }
         fetch('/api/comentarios')
           .then(r => r.json())
           .then(cdata => {
             cdata.comments.forEach(item => {
               const li = document.createElement('li');
-              li.className = 'list-group-item';
-              li.textContent = `${item.date}: ${item.comment}`;
+              li.className = 'list-group-item d-flex justify-content-between align-items-start';
+
+              const span = document.createElement('span');
+              span.textContent = `${item.date}: ${item.comment}`;
+              li.appendChild(span);
+
+              const btnGroup = document.createElement('div');
+              btnGroup.innerHTML = `
+                <button class="btn btn-sm btn-outline-success me-2">👍 <span>${item.likes}</span></button>
+                <button class="btn btn-sm btn-outline-danger">👎 <span>${item.dislikes}</span></button>
+              `;
+              const [likeBtn, dislikeBtn] = btnGroup.querySelectorAll('button');
+              li.appendChild(btnGroup);
+
+              function disable() { likeBtn.disabled = true; dislikeBtn.disabled = true; }
+              if (reactions[item._id]) disable();
+
+              function react(type) {
+                fetch(`/api/comentarios/${item._id}/react`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ type })
+                })
+                  .then(r => r.json())
+                  .then(data => {
+                    likeBtn.querySelector('span').textContent = data.likes;
+                    dislikeBtn.querySelector('span').textContent = data.dislikes;
+                    reactions[item._id] = true;
+                    saveReactions();
+                    disable();
+                  });
+              }
+
+              likeBtn.addEventListener('click', () => react('like'));
+              dislikeBtn.addEventListener('click', () => react('dislike'));
+
               commentsList.appendChild(li);
             });
           });

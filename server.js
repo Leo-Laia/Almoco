@@ -46,6 +46,16 @@ const voteSchema = new mongoose.Schema({
     trim: true,
     default: '',
   },
+  likes: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  dislikes: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
 });
 
 const Vote = mongoose.model('Vote', voteSchema);
@@ -109,12 +119,29 @@ app.get('/api/comentarios', async (req, res) => {
     const comments = await Vote.find({
       date: { $gte: from, $lte: to },
       comment: { $exists: true, $ne: '' }
-    }).select('date comment -_id');
+    }).select('date comment likes dislikes');
 
     res.json({ comments, period: { from, to }, count: comments.length });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao buscar comentários' });
+  }
+});
+
+// POST /api/comentarios/:id/react — registra uma reação em um comentário
+app.post('/api/comentarios/:id/react', async (req, res) => {
+  try {
+    const { type } = req.body;
+    if (type !== 'like' && type !== 'dislike') {
+      return res.status(400).json({ error: 'Tipo inválido' });
+    }
+    const update = type === 'like' ? { $inc: { likes: 1 } } : { $inc: { dislikes: 1 } };
+    const vote = await Vote.findByIdAndUpdate(req.params.id, update, { new: true });
+    if (!vote) return res.status(404).json({ error: 'Comentário não encontrado' });
+    res.json({ likes: vote.likes, dislikes: vote.dislikes });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao registrar reação' });
   }
 });
 

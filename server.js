@@ -16,7 +16,7 @@ mongoose
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
-  .then(() => console.log('✅ MongoDB conectado!'))
+  .then(() => console.log(`✅ MongoDB conectado! URI: ${process.env.MONGODB_URI}`))
   .catch(err => {
     console.error('❌ Erro ao conectar no MongoDB:', err);
     process.exit(1);
@@ -37,6 +37,7 @@ const voteSchema = new mongoose.Schema({
     variedade:   { type: Number, required: true, min: 0 },
     sabor:       { type: Number, required: true, min: 0 },
     qualidade:   { type: Number, required: true, min: 0 },
+    carne:       { type: Number, required: true, min: 0 },
     sobremesa:   { type: Number, required: true, min: 0 },
     atendimento: { type: Number, required: true, min: 0 },
   },
@@ -83,11 +84,12 @@ app.get('/api/avaliacoes', async (req, res) => {
       date: { $gte: from, $lte: to }
     });
 
-    const criteria = ['variedade', 'sabor', 'qualidade', 'sobremesa', 'atendimento'];
+    const criteria = ['variedade', 'sabor', 'qualidade', 'carne', 'sobremesa', 'atendimento'];
     const avg = {};
     criteria.forEach(c => {
-      const sum = votes.reduce((s, v) => s + (v.notas[c] || 0), 0);
-      avg[c] = votes.length ? +(sum / votes.length).toFixed(2) : 0;
+            const vals = votes.map(v => v.notas[c]).filter(v => v !== null && v !== undefined);
+            const sum  = vals.reduce((s, v) => s + v, 0);
+            avg[c] = vals.length ? +(sum / vals.length).toFixed(2) : 0;
     });
 
     res.json({ avg, count: votes.length, period: { from, to } });

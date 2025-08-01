@@ -17,6 +17,11 @@ app.get('/api/version', (req, res) => {
   res.json({ version });
 });
 
+// Configurações expostas para o frontend
+app.get('/api/config', (req, res) => {
+  res.json({ googleClientId: process.env.GOOGLE_CLIENT_ID || null });
+});
+
 // Rotas da API
 app.use('/api', apiRoutes);
 

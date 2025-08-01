@@ -1,23 +1,43 @@
 const express = require('express');
+const { OAuth2Client } = require('google-auth-library');
 const Vote = require('../models/vote');
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const router = express.Router();
 
 // POST /api/voto — registra um novo voto
 router.post('/voto', async (req, res) => {
   try {
-    const { voterId, notas, comment } = req.body;
-    if (!voterId || !notas) {
+    const { voterId, notas, comment, idToken } = req.body;
+    if (!notas) {
       return res.status(400).json({ error: 'Dados incompletos' });
     }
 
+    let finalVoterId = voterId;
+    if (idToken) {
+      try {
+        const ticket = await googleClient.verifyIdToken({
+          idToken,
+          audience: process.env.GOOGLE_CLIENT_ID,
+        });
+        const payload = ticket.getPayload();
+        finalVoterId = `google-${payload.sub}`;
+      } catch (err) {
+        return res.status(401).json({ error: 'Token do Google inválido' });
+      }
+    }
+    if (!finalVoterId) {
+      return res.status(400).json({ error: 'Identificação do votante ausente' });
+    }
+
     const today = new Date().toISOString().slice(0, 10);
-    const alreadyVoted = await Vote.findOne({ voterId, date: today });
+    const alreadyVoted = await Vote.findOne({ voterId: finalVoterId, date: today });
     if (alreadyVoted) {
       return res.status(400).json({ error: 'Você já votou hoje' });
     }
 
-    const vote = new Vote({ voterId, date: today, notas, comment });
+    const vote = new Vote({ voterId: finalVoterId, date: today, notas, comment });
     await vote.save();
     res.status(201).json({ message: 'Voto registrado' });
   } catch (err) {

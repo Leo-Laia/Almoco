@@ -46,6 +46,7 @@
   <div class="container py-5">
     <h1 class="mb-4">Como estava a qualidade do almoço hoje?</h1>
     <span class="mb-4">Você só pode votar uma vez ao dia!</span>
+    <div id="googleLogin" class="my-3"></div>
 
     <div id="form-container">
       <form id="vote-form">
@@ -81,6 +82,30 @@
     }
 
     (function(){
+      let googleToken = localStorage.getItem('googleToken');
+
+      function initGoogle(clientId) {
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.onload = () => {
+          google.accounts.id.initialize({
+            client_id: clientId,
+            callback: res => {
+              googleToken = res.credential;
+              localStorage.setItem('googleToken', googleToken);
+              document.getElementById('googleLogin').style.display = 'none';
+            }
+          });
+          google.accounts.id.renderButton(document.getElementById('googleLogin'), { theme: 'outline', size: 'large' });
+          if (googleToken) google.accounts.id.prompt();
+        };
+        document.head.appendChild(script);
+      }
+
+      fetch('/api/config')
+        .then(r => r.json())
+        .then(cfg => { if (cfg.googleClientId) initGoogle(cfg.googleClientId); });
+
       const criteria = [
         { key: 'variedade',   label: 'Variedade',   icon: 'bi-list-stars' },
         { key: 'sabor',       label: 'Sabor',       icon: 'bi-emoji-smile' },
@@ -252,10 +277,12 @@
           notas[c.key] = optOut.checked ? null : +slider.value;
         });
         const comment = document.getElementById('comment').value.trim();
+        const payload = { notas, comment };
+        if (googleToken) payload.idToken = googleToken; else payload.voterId = voterId;
         fetch('/api/voto', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ voterId, notas, comment })
+          body: JSON.stringify(payload)
         })
         .then(res => res.ok ? res.json() : res.json().then(err => Promise.reject(err)))
         .then(() => {

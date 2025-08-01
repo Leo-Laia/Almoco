@@ -9,26 +9,25 @@ const router = express.Router();
 // POST /api/voto — registra um novo voto
 router.post('/voto', async (req, res) => {
   try {
-    const { voterId, notas, comment, idToken } = req.body;
+    const { notas, comment, idToken } = req.body;
     if (!notas) {
       return res.status(400).json({ error: 'Dados incompletos' });
     }
 
-    let finalVoterId = voterId;
-    if (idToken) {
-      try {
-        const ticket = await googleClient.verifyIdToken({
-          idToken,
-          audience: process.env.GOOGLE_CLIENT_ID,
-        });
-        const payload = ticket.getPayload();
-        finalVoterId = `google-${payload.sub}`;
-      } catch (err) {
-        return res.status(401).json({ error: 'Token do Google inválido' });
-      }
+    if (!idToken) {
+      return res.status(401).json({ error: 'Login com Google obrigatório' });
     }
-    if (!finalVoterId) {
-      return res.status(400).json({ error: 'Identificação do votante ausente' });
+
+    let finalVoterId;
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+      finalVoterId = `google-${payload.sub}`;
+    } catch (err) {
+      return res.status(401).json({ error: 'Token do Google inválido' });
     }
 
     const today = new Date().toISOString().slice(0, 10);

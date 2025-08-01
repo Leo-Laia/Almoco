@@ -72,17 +72,12 @@
   </div>
 
   <script>
-    // Fallback UUID
-    function generateUUID() {
-      if (crypto && crypto.randomUUID) return crypto.randomUUID();
-      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-        const r = Math.random() * 16 | 0;
-        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-      });
-    }
-
     (function(){
       let googleToken = localStorage.getItem('googleToken');
+      const formContainer = document.getElementById('form-container');
+
+      function showForm() { formContainer.style.display = 'block'; }
+      function hideForm() { formContainer.style.display = 'none'; }
 
       function initGoogle(clientId) {
         const script = document.createElement('script');
@@ -94,10 +89,19 @@
               googleToken = res.credential;
               localStorage.setItem('googleToken', googleToken);
               document.getElementById('googleLogin').style.display = 'none';
+              showForm();
             }
           });
-          google.accounts.id.renderButton(document.getElementById('googleLogin'), { theme: 'outline', size: 'large' });
-          if (googleToken) google.accounts.id.prompt();
+          google.accounts.id.renderButton(
+            document.getElementById('googleLogin'),
+            { theme: 'outline', size: 'large' }
+          );
+          if (googleToken) {
+            google.accounts.id.prompt();
+            showForm();
+          } else {
+            hideForm();
+          }
         };
         document.head.appendChild(script);
       }
@@ -116,11 +120,9 @@
       ];
       const hoje = new Date().toISOString().slice(0,10);
       if (localStorage.getItem('votoDate') !== hoje) {
-        localStorage.setItem('votoId', generateUUID());
         localStorage.setItem('votoDate', hoje);
         localStorage.removeItem('votoVoted');
       }
-      const voterId = localStorage.getItem('votoId');
 
       // Cria sliders
       const slidersDiv = document.getElementById('sliders');
@@ -270,6 +272,10 @@
 
       form.addEventListener('submit', e => {
         e.preventDefault();
+        if (!googleToken) {
+          showMessage('Você precisa fazer login com o Google para votar.', 'warning');
+          return;
+        }
         const notas = {};
         criteria.forEach(c => {
           const slider  = document.getElementById(c.key);
@@ -277,8 +283,7 @@
           notas[c.key] = optOut.checked ? null : +slider.value;
         });
         const comment = document.getElementById('comment').value.trim();
-        const payload = { notas, comment };
-        if (googleToken) payload.idToken = googleToken; else payload.voterId = voterId;
+        const payload = { notas, comment, idToken: googleToken };
         fetch('/api/voto', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

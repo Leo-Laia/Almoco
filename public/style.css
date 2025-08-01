@@ -1,0 +1,83 @@
+body {
+  background: linear-gradient(135deg, #eceff1, #ffffff);
+}
+
+.navbar-brand i {
+  vertical-align: -0.2em;
+}
+
+/* Reuse slider styles from inline CSS if needed */
+
+
+/* Range slider styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  margin: 1rem 0;
+  background: transparent;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 8px;
+  background: #ddd;
+  border-radius: 4px;
+  transition: background 0.3s;
+}
+input[type="range"]::-moz-range-track {
+  width: 100%;
+  height: 8px;
+  background: #ddd;
+  border-radius: 4px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  background: #0d6efd;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 2px rgba(0,0,0,0.5);
+  margin-top: -4px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: #0d6efd;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 2px rgba(0,0,0,0.5);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+input[type="range"]:hover::-webkit-slider-thumb,
+input[type="range"]:focus::-webkit-slider-thumb {
+  background: #0b5ed7;
+  transform: scale(1.2);
+}
+input[type="range"]:hover::-moz-range-thumb,
+input[type="range"]:focus::-moz-range-thumb {
+  background: #0b5ed7;
+  transform: scale(1.2);
+}
+input[type="range"]:focus {
+  outline: none;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    #0d6efd 0%,
+    #0d6efd calc((var(--value) - 1) / 4 * 100%),
+    #ddd calc((var(--value) - 1) / 4 * 100%),
+    #ddd 100%
+  );
+}
+.range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  margin-top: -0.25rem;
+  padding: 0 2px;
+  pointer-events: none;
+}

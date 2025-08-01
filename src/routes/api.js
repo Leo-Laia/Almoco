@@ -11,13 +11,8 @@ router.post('/voto', async (req, res) => {
       return res.status(400).json({ error: 'Dados incompletos' });
     }
 
-    const today = new Date().toISOString().slice(0, 10);
-    const alreadyVoted = await Vote.findOne({ voterId, date: today });
-    if (alreadyVoted) {
-      return res.status(400).json({ error: 'Você já votou hoje' });
-    }
-
-    const vote = new Vote({ voterId, date: today, notas, comment });
+  const today = new Date().toISOString().slice(0, 10);
+  const vote = new Vote({ voterId, date: today, notas, comment });
     await vote.save();
     res.status(201).json({ message: 'Voto registrado' });
   } catch (err) {

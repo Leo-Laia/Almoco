@@ -38,6 +38,7 @@
           <li class="nav-item"><a class="nav-link" href="/">Início</a></li>
           <li class="nav-item"><a class="nav-link" href="/resumo">Resumo</a></li>
         </ul>
+        <a id="loginBtn" href="/auth/google" class="btn btn-outline-light" style="display:none;">Login with Google</a>
       </div>
     </div>
   </nav>
@@ -71,16 +72,28 @@
   </div>
 
   <script>
-    // Fallback UUID
-    function generateUUID() {
-      if (crypto && crypto.randomUUID) return crypto.randomUUID();
-      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-        const r = Math.random() * 16 | 0;
-        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-      });
-    }
-
     (function(){
+      const loginBtn     = document.getElementById('loginBtn');
+      const formContainer = document.getElementById('form-container');
+      let voterId = null;
+
+      function checkAuth() {
+        fetch('/api/user')
+          .then(r => r.json())
+          .then(data => {
+            if (data.user) {
+              voterId = data.user.id;
+              loginBtn.style.display = 'none';
+              formContainer.style.display = '';
+            } else {
+              loginBtn.style.display = 'block';
+              formContainer.style.display = 'none';
+            }
+          });
+      }
+
+      checkAuth();
+
       const criteria = [
         { key: 'variedade',   label: 'Variedade',   icon: 'bi-list-stars' },
         { key: 'sabor',       label: 'Sabor',       icon: 'bi-emoji-smile' },
@@ -89,13 +102,6 @@
         { key: 'sobremesa',   label: 'Sobremesa',   icon: 'bi-cup-straw' },
         { key: 'atendimento', label: 'Atendimento', icon: 'bi-people' }
       ];
-      const hoje = new Date().toISOString().slice(0,10);
-      if (localStorage.getItem('votoDate') !== hoje) {
-        localStorage.setItem('votoId', generateUUID());
-        localStorage.setItem('votoDate', hoje);
-        localStorage.removeItem('votoVoted');
-      }
-      const voterId = localStorage.getItem('votoId');
 
       // Cria sliders
       const slidersDiv = document.getElementById('sliders');
@@ -236,13 +242,6 @@
           .then(displayResults);
       }
 
-      // Se já votou
-      if (localStorage.getItem('votoVoted') === hoje) {
-        document.getElementById('form-container').style.display = 'none';
-        showMessage('Você já votou hoje.', 'info');
-        fetchResults();
-      }
-
       form.addEventListener('submit', e => {
         e.preventDefault();
         const notas = {};
@@ -259,7 +258,6 @@
         })
         .then(res => res.ok ? res.json() : res.json().then(err => Promise.reject(err)))
         .then(() => {
-          localStorage.setItem('votoVoted', hoje);
           document.getElementById('form-container').style.display = 'none';
           showMessage('Voto registrado! Obrigado.', 'success');
           fetchResults();

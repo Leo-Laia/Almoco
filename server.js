@@ -48,8 +48,11 @@ app.get('/logout', (req, res, next) => {
   });
 });
 
-app.use(ensureAuthenticated);
 app.use(express.static('public'));
+
+app.get('/api/user', (req, res) => {
+  res.json({ user: req.user || null });
+});
 
 // Endpoint para versão da aplicação
 app.get('/api/version', (req, res) => {
@@ -57,7 +60,7 @@ app.get('/api/version', (req, res) => {
 });
 
 // Rotas da API
-app.use('/api', apiRoutes);
+app.use('/api', ensureAuthenticated, apiRoutes);
 
 // Rota para página de resumo
 app.get('/resumo', (req, res) => {

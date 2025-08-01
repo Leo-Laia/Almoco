@@ -50,6 +50,7 @@
           <li class="nav-item"><a class="nav-link" href="/">Início</a></li>
           <li class="nav-item"><a class="nav-link" href="/resumo">Resumo</a></li>
         </ul>
+        <a id="loginBtn" href="/auth/google" class="btn btn-outline-light" style="display:none;">Login with Google</a>
       </div>
     </div>
   </nav>
@@ -188,6 +189,16 @@
     }
 
     (function(){
+      const loginBtn = document.getElementById('loginBtn');
+      function checkAuth() {
+        fetch('/api/user')
+          .then(r => r.json())
+          .then(d => {
+            loginBtn.style.display = d.user ? 'none' : 'block';
+          });
+      }
+      checkAuth();
+
       const criteriaLabels = [
         'Variedade','Sabor','Qualidade','Carne', 'Sobremesa','Atendimento'
       ];

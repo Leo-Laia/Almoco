@@ -2,6 +2,23 @@ const express = require('express');
 const Vote = require('../models/vote');
 
 const router = express.Router();
+const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+function getPeriodOrToday(start, end) {
+  const today = new Date().toISOString().slice(0, 10);
+  const from = start || today;
+  const to = end || from;
+
+  if (!ISO_DATE_REGEX.test(from) || !ISO_DATE_REGEX.test(to)) {
+    return { error: 'Datas inválidas. Use o formato YYYY-MM-DD.' };
+  }
+
+  if (to < from) {
+    return { error: 'Período inválido. A data final deve ser maior ou igual à inicial.' };
+  }
+
+  return { from, to };
+}
 
 // POST /api/voto — registra um novo voto
 router.post('/voto', async (req, res) => {
@@ -30,8 +47,12 @@ router.post('/voto', async (req, res) => {
 router.get('/avaliacoes', async (req, res) => {
   try {
     const { start, end } = req.query;
-    const from = start || new Date().toISOString().slice(0, 10);
-    const to   = end   || from;
+    const period = getPeriodOrToday(start, end);
+    if (period.error) {
+      return res.status(400).json({ error: period.error });
+    }
+
+    const { from, to } = period;
 
     const votes = await Vote.find({
       date: { $gte: from, $lte: to }
@@ -56,8 +77,12 @@ router.get('/avaliacoes', async (req, res) => {
 router.get('/comentarios', async (req, res) => {
   try {
     const { start, end, q, minLikes } = req.query;
-    const from = start || new Date().toISOString().slice(0, 10);
-    const to   = end   || from;
+    const period = getPeriodOrToday(start, end);
+    if (period.error) {
+      return res.status(400).json({ error: period.error });
+    }
+
+    const { from, to } = period;
 
     const filter = {
       date: { $gte: from, $lte: to },
